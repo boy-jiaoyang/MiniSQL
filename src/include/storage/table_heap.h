@@ -113,7 +113,12 @@ class TableHeap {
         schema_(schema),
         log_manager_(log_manager),
         lock_manager_(lock_manager) {
-    ASSERT(false, "Not implemented yet.");
+    first_page_id_ = INVALID_PAGE_ID;
+    auto page = reinterpret_cast<TablePage *>(buffer_pool_manager_->NewPage(first_page_id_));
+    ASSERT(page != nullptr, "Failed to set page");
+    page->Init(first_page_id_, INVALID_PAGE_ID, log_manager, txn);
+    last_page_id_ = first_page_id_;
+    buffer_pool_manager_->UnpinPage(first_page_id_, true);
   };
 
   explicit TableHeap(BufferPoolManager *buffer_pool_manager, page_id_t first_page_id, Schema *schema,
@@ -122,11 +127,23 @@ class TableHeap {
         first_page_id_(first_page_id),
         schema_(schema),
         log_manager_(log_manager),
-        lock_manager_(lock_manager) {}
+        lock_manager_(lock_manager) {
+    if(first_page_id_ == INVALID_PAGE_ID) {
+     last_page_id_ = INVALID_PAGE_ID;
+    }else {
+     page_id_t traverse_page_id = first_page_id_;
+     while (auto page = buffer_pool_manager_->FetchPage(traverse_page_id)) {
+      last_page_id_ = traverse_page_id;
+      traverse_page_id = reinterpret_cast<TablePage *>(page)->GetNextPageId();
+      buffer_pool_manager_->UnpinPage(last_page_id_, false);
+     }
+    }
+  }
 
  private:
   BufferPoolManager *buffer_pool_manager_;
   page_id_t first_page_id_;
+  page_id_t last_page_id_;
   Schema *schema_;
   [[maybe_unused]] LogManager *log_manager_;
   [[maybe_unused]] LockManager *lock_manager_;

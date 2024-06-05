@@ -51,7 +51,7 @@ void DiskManager::WritePage(page_id_t logical_page_id, const char *page_data) {
  * TODO: Student Implement
  */
 page_id_t DiskManager::AllocatePage() {
-  DiskFileMetaPage *metapage = (DiskFileMetaPage *)GetMetaData();
+  DiskFileMetaPage *metapage = reinterpret_cast<DiskFileMetaPage *>(GetMetaData());
   uint32_t num_extent = metapage->num_extents_;
   uint32_t allocated_extent_id = 0;
   for(allocated_extent_id = 0; allocated_extent_id < num_extent; allocated_extent_id++) {
@@ -59,13 +59,13 @@ page_id_t DiskManager::AllocatePage() {
       break;
     }
   }
+  uint32_t allocated_frame_id = allocated_extent_id * (BitmapPage<4096>::GetMaxSupportedSize() + 1) + 1;
   if(allocated_extent_id == num_extent) {
     auto new_extent = new BitmapPage<4090>();
-    WritePhysicalPage(num_extent, reinterpret_cast<char *>(new_extent));
+    WritePhysicalPage(allocated_frame_id, reinterpret_cast<char *>(new_extent));
     metapage->num_extents_++;
     metapage->extent_used_page_[num_extent] = 0;
   }
-  uint32_t allocated_frame_id = allocated_extent_id * (BitmapPage<4096>::GetMaxSupportedSize() + 1) + 1;
   auto allocated_extent = new BitmapPage<4096>();
   ReadPhysicalPage(allocated_frame_id, reinterpret_cast<char *>(allocated_extent));
   uint32_t allocated_page_offset = -1;
