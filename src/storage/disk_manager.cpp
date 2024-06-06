@@ -115,10 +115,10 @@ bool DiskManager::IsPageFree(page_id_t logical_page_id) {
       bool isnull = extent->IsPageFree(extent_offset_id);
       return isnull;
     }else {
-      return true;
+      return false;
     }
   }
-  return false;
+  return true;
 }
 
 /**
