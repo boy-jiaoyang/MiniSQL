@@ -47,19 +47,15 @@ bool BitmapPage<PageSize>::DeAllocatePage(uint32_t page_offset) {
  */
 template <size_t PageSize>
 bool BitmapPage<PageSize>::IsPageFree(uint32_t page_offset) const {
-  uint8_t bit = page_offset / 8;
-  int temp = page_offset % 8;
-  unsigned char retest = 1;
-  for(int i = 0; i < temp; i++) retest *= 2;
-  if((bytes[bit] & retest) == 0) {
-    return true;
-  }
-  return false;
+  return IsPageFreeLow(page_offset / 8, page_offset % 8);
 }
 
 template <size_t PageSize>
 bool BitmapPage<PageSize>::IsPageFreeLow(uint32_t byte_index, uint8_t bit_index) const {
-  return false;
+  if(byte_index >= MAX_CHARS) {
+    return false;
+  }
+  return ((bytes[byte_index] >> bit_index) & 1) ^ 1;
 }
 
 template class BitmapPage<64>;

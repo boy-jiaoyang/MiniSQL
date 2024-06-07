@@ -55,40 +55,40 @@ page_id_t DiskManager::AllocatePage() {
   uint32_t num_extent = metapage->num_extents_;
   uint32_t allocated_extent_id = 0;
   for(allocated_extent_id = 0; allocated_extent_id < num_extent; allocated_extent_id++) {
-    if(metapage->extent_used_page_[allocated_extent_id] < BitmapPage<4096>::GetMaxSupportedSize()) {
+    if(metapage->extent_used_page_[allocated_extent_id] < BITMAP_SIZE) {
       break;
     }
   }
-  uint32_t allocated_frame_id = allocated_extent_id * (BitmapPage<4096>::GetMaxSupportedSize() + 1) + 1;
+  uint32_t allocated_frame_id = allocated_extent_id * (BITMAP_SIZE + 1) + 1;
   if(allocated_extent_id == num_extent) {
-    auto new_extent = new BitmapPage<4090>();
+    auto new_extent = new BitmapPage<PAGE_SIZE>();
     WritePhysicalPage(allocated_frame_id, reinterpret_cast<char *>(new_extent));
     metapage->num_extents_++;
     metapage->extent_used_page_[num_extent] = 0;
   }
-  auto allocated_extent = new BitmapPage<4096>();
+  auto allocated_extent = new BitmapPage<PAGE_SIZE>();
   ReadPhysicalPage(allocated_frame_id, reinterpret_cast<char *>(allocated_extent));
   uint32_t allocated_page_offset = -1;
   allocated_extent->AllocatePage(allocated_page_offset);
   metapage->num_allocated_pages_++;
   metapage->extent_used_page_[allocated_extent_id]++;
   WritePhysicalPage(allocated_frame_id, reinterpret_cast<char *>(allocated_extent));
-  return allocated_extent_id * BitmapPage<4096>::GetMaxSupportedSize() + allocated_page_offset;
+  return allocated_extent_id * BITMAP_SIZE + allocated_page_offset;
 }
 
 /**
  * TODO: Student Implement
  */
 void DiskManager::DeAllocatePage(page_id_t logical_page_id) {
+  ASSERT(logical_page_id < MAX_VALID_PAGE_ID, "Invalid page id.");
+
   DiskFileMetaPage *metapage = reinterpret_cast<DiskFileMetaPage *>(GetMetaData());
-  uint32_t num_extent = metapage->num_extents_;
-  uint32_t deallocated_id = logical_page_id / BitmapPage<4096>::GetMaxSupportedSize();
-  if(deallocated_id > num_extent) {
-    ASSERT(false, "Not implemented yet.");
-  }
-  uint32_t deallocated_frame_id = deallocated_id * (BitmapPage<4096>::GetMaxSupportedSize() + 1) + 1;
-  uint32_t deallocated_page_offset = logical_page_id % BitmapPage<4096>::GetMaxSupportedSize();
-  auto deallocated_extent = new BitmapPage<4096>();
+
+  uint32_t deallocated_id = logical_page_id / BITMAP_SIZE;
+  uint32_t deallocated_page_offset = logical_page_id % BITMAP_SIZE;
+  uint32_t deallocated_frame_id = deallocated_id * (BITMAP_SIZE + 1) + 1;
+
+  auto deallocated_extent = new BitmapPage<PAGE_SIZE>();
   ReadPhysicalPage(deallocated_frame_id, reinterpret_cast<char *>(deallocated_extent));
   if(deallocated_extent == nullptr) {
     ASSERT(false, "It is null");
@@ -103,31 +103,25 @@ void DiskManager::DeAllocatePage(page_id_t logical_page_id) {
  * TODO: Student Implement
  */
 bool DiskManager::IsPageFree(page_id_t logical_page_id) {
-  DiskFileMetaPage *metapage = reinterpret_cast<DiskFileMetaPage *>(GetMetaData());
-  uint32_t num_extent = metapage->num_extents_;
-  uint32_t extent_id = logical_page_id / BitmapPage<4096>::GetMaxSupportedSize();
-  if(extent_id < num_extent) {
-    uint32_t extent_frame_id = extent_id * (BitmapPage<4096>::GetMaxSupportedSize() + 1) + 1;
-    uint32_t extent_offset_id = logical_page_id % BitmapPage<4096>::GetMaxSupportedSize();
-    auto extent = new BitmapPage<4096>();
-    ReadPhysicalPage(extent_frame_id, reinterpret_cast<char *>(extent));
-    if(extent != nullptr) {
-      bool isnull = extent->IsPageFree(extent_offset_id);
-      return isnull;
-    }else {
-      return false;
-    }
+  if(logical_page_id >= MAX_VALID_PAGE_ID) {
+    return false;
   }
-  return true;
+  uint32_t extent_id = logical_page_id / BITMAP_SIZE;
+  uint32_t extent_offset_id = logical_page_id % BITMAP_SIZE;
+  uint32_t extent_frame_id = extent_id * (BITMAP_SIZE + 1) + 1;
+
+  auto extent = new BitmapPage<PAGE_SIZE>();
+  ReadPhysicalPage(extent_frame_id, reinterpret_cast<char *>(extent));
+  return extent->IsPageFree(extent_offset_id);
 }
 
 /**
  * TODO: Student Implement
  */
 page_id_t DiskManager::MapPageId(page_id_t logical_page_id) {
-  uint32_t extent_page_number = (logical_page_id / BitmapPage<4096>::GetMaxSupportedSize() +1) + 1;
+  uint32_t extent_page_number = (logical_page_id / BITMAP_SIZE +1) + 1;
   return extent_page_number + logical_page_id;
-  return 0;
+  //return 0;
 }
 
 int DiskManager::GetFileSize(const std::string &file_name) {
