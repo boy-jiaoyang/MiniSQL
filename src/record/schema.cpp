@@ -37,8 +37,7 @@ uint32_t Schema::DeserializeFrom(char *buf, Schema *&schema) {
   ASSERT(schema == nullptr, "Fail to deserialize schema from disk");
   char *p = buf;
   // Read the magic number from the buffer
-  uint32_t magic_num;
-  MACH_WRITE_UINT32(buf, magic_num);
+  uint32_t magic_num = MACH_READ_UINT32(buf);
   buf += sizeof(uint32_t);
   ASSERT(magic_num == SCHEMA_MAGIC_NUM, "Failed to deserialize schema");
   // Read the number of columns from the buffer
