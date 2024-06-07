@@ -9,7 +9,7 @@ uint32_t Schema::SerializeTo(char *buf) const {
   ASSERT(GetSerializedSize() <= PAGE_SIZE, "Fail to serialze schema to disk");
   char *p = buf;
   // Write the magic number to the buffer
-  MACH_WRITE_UINT32(buf, SCHEMA_MAGIC_NUM);
+  uint32_t magic_num = MACH_READ_UINT32(buf);
   buf += sizeof(uint32_t);
   // Write the number of columns to the buffer
   MACH_WRITE_UINT32(buf, columns_.size());

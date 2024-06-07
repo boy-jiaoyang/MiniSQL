@@ -72,6 +72,7 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
 /**
  * TODO: Student Implement
  */
+/*
 Page *BufferPoolManager::NewPage(page_id_t &page_id) {
   // 0.   Make sure you call AllocatePage!
   // 1.   If all the pages in the buffer pool are pinned, return nullptr.
@@ -101,7 +102,61 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
   replacer_->Pin(cache_page_frame_id);
   return &pages_[cache_page_frame_id];
 }
+*/
+Page *BufferPoolManager::NewPage(page_id_t &page_id) {
+  // 0.   Make sure you call AllocatePage!
+  // 1.   If all the pages in the buffer pool are pinned, return nullptr.
+  // 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
+  // 3.   Update P's metadata, zero out memory and add P to the page table.
+  // 4.   Set the page ID output parameter. Return a pointer to P.
 
+  // 缓冲区有空余的页
+  if(!free_list_.empty())
+  {
+    frame_id_t frame_id = free_list_.front(); // 获取第一个空页的页帧
+    free_list_.erase(free_list_.begin()); // 从空页链表中删除第一个空页
+
+    page_id = AllocatePage(); //从磁盘中获取一个空的页(逻辑号)
+    if(page_id == INVALID_PAGE_ID) // 磁盘没有空的页返回
+      return nullptr;
+
+    // 更新Page的信息
+    // 注意此时不能解除空页固定，空页相当于被Pin住了(空页不能被替换)
+    pages_[frame_id].ResetMemory(); // 清空Page的数据
+    pages_[frame_id].page_id_ = page_id;
+    pages_[frame_id].is_dirty_ = false;
+    pages_[frame_id].pin_count_ = 0;
+    page_table_.insert({page_id, frame_id});// 向page table中插入对应关系
+    return &pages_[frame_id];
+  }
+
+  // 内存中没有空页
+  frame_id_t frame_id;
+  replacer_->Victim(&frame_id);  // 根据replacer策略获得一个替换的页R
+  if(frame_id == INVALID_FRAME_ID) // 如果所有页都被Pin了，返回nullpter
+    return nullptr;
+
+  page_id = AllocatePage(); //从磁盘中获取一个空的页(逻辑号)
+  if(page_id == INVALID_PAGE_ID) // 磁盘没有空的页返回
+    return nullptr;
+
+  page_id_t replace_page_id = pages_[frame_id].GetPageId(); // 获取替换页对应的逻辑页号
+
+  // 替换页是脏的，需要重新写回磁盘
+  if(pages_[frame_id].IsDirty())
+    disk_manager_->WritePage(replace_page_id, pages_[frame_id].GetData());
+  // 从page_table_中删除替换页的映射关系 ---> 替换页变成空页
+  auto iter = page_table_.find(replace_page_id);
+  page_table_.erase(iter);
+
+  // 修改信息
+  pages_[frame_id].page_id_ = page_id;
+  pages_[frame_id].is_dirty_ = false;
+  pages_[frame_id].pin_count_ = 0;
+  pages_[frame_id].ResetMemory();
+  page_table_.insert({page_id, frame_id});// 向page table中插入对应关系
+  return &pages_[frame_id];
+}
 /**
  * TODO: Student Implement
  */

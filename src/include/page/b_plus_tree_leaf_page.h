@@ -41,6 +41,8 @@ class BPlusTreeLeafPage : public BPlusTreePage {
 
   void SetNextPageId(page_id_t next_page_id);
 
+  int KeyFind(const GenericKey *key, const KeyManager &KM);
+
   GenericKey *KeyAt(int index);
 
   void SetKeyAt(int index, GenericKey *key);

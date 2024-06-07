@@ -55,6 +55,7 @@ class BPlusTree {
 
   // destroy the b plus tree
   void Destroy(page_id_t current_page_id = INVALID_PAGE_ID);
+  void DestroySubTree(page_id_t current_page_id);
 
   void PrintTree(std::ofstream &out, Schema *schema) {
     if (IsEmpty()) {
