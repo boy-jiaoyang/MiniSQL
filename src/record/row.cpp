@@ -11,26 +11,27 @@ uint32_t Row::SerializeTo(char *buf, Schema *schema) const {
   // replace with your code here
   //return 0;
   char *p = buf;
-  // Write the row id to the buffer
-  RowId rid = GetRowId();
-  MACH_WRITE_UINT32(buf, rid.GetPageId());
-  buf += sizeof(uint32_t);
-  MACH_WRITE_UINT32(buf, rid.GetSlotNum());
-  buf += sizeof(uint32_t);
-  // 记录空字段的位置
-  std::vector<bool> nulls;
-  for (auto field : fields_) {
-    nulls.push_back(field->IsNull());
-  }
-  for (auto null : nulls) {
-    MACH_WRITE_UINT8(buf, null);
-    buf += sizeof(uint8_t);
-  }
-  // Write each field to the buffer
+  //计算位图所需要的字节数
+  uint32_t bitmap_size = (fields_.size() + 7) / 8;
+  char *bitmap = new char[bitmap_size];
+  std::memset(bitmap, 0, bitmap_size);
+  //初始化位图
   for (uint32_t i = 0; i < fields_.size(); i++) {
-    if (!nulls[i]) {
-      buf += fields_[i]->SerializeTo(buf);
+    if (fields_[i]->IsNull()) {
+      bitmap[i / 8] |= (1 << (i % 8));
+    } else {
+      bitmap[i / 8] &= ~(1 << (i % 8));
     }
+  }
+  //序列化位图大小
+  MACH_WRITE_UINT32(buf, bitmap_size);
+  buf += sizeof(uint32_t);
+  //序列化位图
+  memcpy(buf, bitmap, bitmap_size);
+  buf += bitmap_size;
+  //序列化每个field
+  for (auto field : fields_) {
+    buf += field->SerializeTo(buf);
   }
   return buf - p;
 }
@@ -41,24 +42,19 @@ uint32_t Row::DeserializeFrom(char *buf, Schema *schema) {
   // replace with your code here
   //return 0;
   char *p = buf;
-  // Read the row id from the buffer
-  uint32_t page_id = MACH_READ_UINT32(buf);
+  //获取位图大小
+  uint32_t bitmap_size = MACH_READ_UINT32(buf);
   buf += sizeof(uint32_t);
-  uint32_t slot_num = MACH_READ_UINT32(buf);
-  buf += sizeof(uint32_t);
-  SetRowId(RowId(page_id, slot_num));
-  // Read the null fields from the buffer
-  std::vector<bool> nulls;
-  for(uint32_t i = 0; i < schema->GetColumnCount(); i++) {
-    bool null = MACH_READ_UINT8(buf) != 0;
-    buf += sizeof(uint8_t);
-    nulls.push_back(null);
-  }
-  // Read each field from the buffer
+  //获取位图
+  std::string bitmap(buf, bitmap_size);
+  buf += bitmap_size;
+  //获取schema的column
+  std::vector<Column *> columns = schema->GetColumns();
+  //将field的大小和column的大小统一
+  fields_.resize(schema->GetColumnCount());
+  //field反序列化
   for (uint32_t i = 0; i < schema->GetColumnCount(); i++) {
-    Field *field = nullptr;
-    buf += Field::DeserializeFrom(buf, schema->GetColumn(i)->GetType(), &field, nulls[i]);
-    fields_.push_back(field);
+    buf += Field::DeserializeFrom(buf, columns[i]->GetType(), &fields_[i], (bitmap[i / 8] >> (i % 8)) & 1);
   }
   return buf - p;
 }
@@ -68,12 +64,10 @@ uint32_t Row::GetSerializedSize(Schema *schema) const {
   ASSERT(schema->GetColumnCount() == fields_.size(), "Fields size do not match schema's column size.");
   // replace with your code here
   //return 0;
-  uint32_t size = sizeof(uint32_t) * 2;
-  size += fields_.size();
-  for (uint32_t i = 0; i < fields_.size(); i++) {
-    if (!fields_[i]->IsNull()) {
-      size += fields_[i]->GetSerializedSize();
-    }
+  uint32_t size = sizeof(uint32_t);
+  size += (fields_.size() + 7) / 8;
+  for (auto field : fields_) {
+    size += field->GetSerializedSize();
   }
   return size;
 }

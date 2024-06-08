@@ -7,105 +7,114 @@
  * TODO: Student Implement
  */
 TableIterator::TableIterator(TableHeap *table_heap, RowId rid, Txn *txn) {
-  table_page_id_ = rid.GetPageId();
-  ASSERT(table_page_id_ != INVALID_PAGE_ID, "table_page_ is INVALID_PAGE_ID");
-  slot_id_ = rid.GetSlotNum();
-  ASSERT(slot_id_ != INVALID_LSN, "slot_id_ is INVALID_SLOT_NUM");
+  rid_ = rid;
   table_heap_ = table_heap;
+  txn_ = txn;
+}
+
+TableIterator::TableIterator(TableHeap *table_heap, RowId &rid, Txn *txn, Row *row) {
+  rid_ = rid;
+  table_heap_ = table_heap;
+  txn_ = txn;
+  if (row) {
+    row_ = new Row(*row);
+  }
+  else row_ = nullptr;
 }
 
 TableIterator::TableIterator(const TableIterator &other) {
-  table_page_id_ = other.table_page_id_;
-  slot_id_ = other.slot_id_;
+  rid_ = other.rid_;
   table_heap_ = other.table_heap_;
-}
-
-TableIterator::TableIterator() {
-  table_page_id_ = INVALID_PAGE_ID;
-  slot_id_ = INVALID_LSN;
-  table_heap_ = nullptr;
+  txn_ = other.txn_;
+  if (other.row_) {
+    row_ = new Row(*other.row_);
+  }
+  else row_ = nullptr;
 }
 
 TableIterator::~TableIterator() {}
 
 bool TableIterator::operator==(const TableIterator &itr) const {
-  return table_page_id_ == itr.table_page_id_ && slot_id_ == itr.slot_id_ && table_heap_ == itr.table_heap_;
+  return rid_ == itr.rid_ && table_heap_ == itr.table_heap_ && txn_ == itr.txn_;
 }
 
 bool TableIterator::operator!=(const TableIterator &itr) const {
-  return table_page_id_ != itr.table_page_id_ || slot_id_ != itr.slot_id_ || table_heap_ != itr.table_heap_;
+  return !(rid_ == itr.rid_) || table_heap_ != itr.table_heap_ || txn_ != itr.txn_;
 }
 
 const Row &TableIterator::operator*() {
   //ASSERT(false, "Not implemented yet.");
-  if (table_page_id_ == INVALID_PAGE_ID || slot_id_ == INVALID_LSN || table_heap_ == nullptr) {
-    // throw exception shows that the iterator is invalid
-    throw std::out_of_range("iterator is invalid");
-  }
-  Row *row = new Row(RowId(table_page_id_, slot_id_));
-  auto *table_page = reinterpret_cast<TablePage *>(table_heap_->buffer_pool_manager_->FetchPage(table_page_id_));
-  // if you need multiple threads, need to add lock here
-  table_page->GetTuple(row, table_heap_->schema_, nullptr, table_heap_->lock_manager_);
-  table_heap_->buffer_pool_manager_->UnpinPage(table_page_id_, false);
-  return *row;
+  return *row_;
 }
 
 Row *TableIterator::operator->() {
   //return nullptr;
-  if (table_page_id_ == INVALID_PAGE_ID || slot_id_ == INVALID_LSN || table_heap_ == nullptr) {
-    // throw exception shows that the iterator is invalid
-    throw std::out_of_range("iterator is invalid");
-  }
-  Row *row = new Row(RowId(table_page_id_, slot_id_));
-  auto *table_page = reinterpret_cast<TablePage *>(table_heap_->buffer_pool_manager_->FetchPage(table_page_id_));
-  // if you need multiple threads, need to add lock here
-  table_page->GetTuple(row, table_heap_->schema_, nullptr, table_heap_->lock_manager_);
-  table_heap_->buffer_pool_manager_->UnpinPage(table_page_id_, false);
-  return row;
+  return row_;
 }
 
 TableIterator &TableIterator::operator=(const TableIterator &itr) noexcept {
   //ASSERT(false, "Not implemented yet.");
-  table_page_id_ = itr.table_page_id_;
-  slot_id_ = itr.slot_id_;
+  if (itr.row_) {
+    row_ = new Row(*itr.row_);
+  }
+  else row_ = nullptr;
+  rid_ = itr.rid_;
   table_heap_ = itr.table_heap_;
+  txn_ = itr.txn_;
   return *this;
 }
 
 // ++iter
 TableIterator &TableIterator::operator++() {
-  if (table_page_id_ == INVALID_PAGE_ID || slot_id_ == INVALID_LSN || table_heap_ == nullptr) {
-    // throw exception shows that the iterator is invalid
-    throw std::out_of_range("iterator is invalid");
-  }
-  auto *table_page = reinterpret_cast<TablePage *>(table_heap_->buffer_pool_manager_->FetchPage(table_page_id_));
-  RowId rid(table_page->GetPageId(), slot_id_);
+  //ASSERT(false, "Not implemented yet.");
+  //获取元组的内存位置
+  ASSERT(row_ != nullptr, "Iterator is not null");
+  page_id_t page_id = rid_.GetPageId();
+  ASSERT(page_id != INVALID_PAGE_ID, "Invalid page id");
+  auto page =reinterpret_cast<TablePage *>(table_heap_->buffer_pool_manager_->FetchPage(page_id));
+  ASSERT(page_id == page->GetPageId(), "Page id errer");
+  //获取下一个元组
   RowId next_rid;
-  if (table_page->GetNextTupleRid(rid, &next_rid)) {
-    table_page_id_ = next_rid.GetPageId();
-    slot_id_ = next_rid.GetSlotNum();
-  } else {
-    table_page_id_ = INVALID_PAGE_ID;
-    slot_id_ = INVALID_LSN;
-    while ((table_page_id_ = table_page->GetNextPageId()) != INVALID_PAGE_ID) {
-      table_heap_->buffer_pool_manager_->UnpinPage(table_page_id_, false);
-      table_page = reinterpret_cast<TablePage *>(table_heap_->buffer_pool_manager_->FetchPage(table_page_id_));
-      if(table_page->GetFirstTupleRid(&next_rid)) {
-        slot_id_ = next_rid.GetSlotNum();
-        break;
-      }
-    }
-    if(slot_id_ == INVALID_PAGE_ID) {
-      table_page_id_ == INVALID_PAGE_ID;
-    }
+  if (page->GetNextTupleRid(rid_, &next_rid)) {
+    row_->GetFields().clear();
+    rid_.Set(next_rid.GetPageId(), next_rid.GetSlotNum());
+    row_->SetRowId(rid_);
+    table_heap_->GetTuple(row_, nullptr);
+    table_heap_->buffer_pool_manager_->UnpinPage(page_id, false);
+    return *this;
   }
+  //如果当前页没有下一个元组，则读取下一页
+  page_id_t next_page_id = INVALID_PAGE_ID;
+  while ((next_page_id = page->GetNextPageId()) != INVALID_PAGE_ID) {
+    page = reinterpret_cast<TablePage *>(table_heap_->buffer_pool_manager_->FetchPage(next_page_id));
+    if (page->GetFirstTupleRid(&next_rid)) {
+      row_->GetFields().clear();
+      rid_.Set(next_rid.GetPageId(), next_rid.GetSlotNum());
+      row_->SetRowId(rid_);
+      table_heap_->GetTuple(row_, nullptr);
+      table_heap_->buffer_pool_manager_->UnpinPage(next_page_id, false);
+      return *this;
+    }
+    table_heap_->buffer_pool_manager_->UnpinPage(next_page_id, false);
+  }
+  //如果没有下一页，则说明已经到达末尾
+  rid_ = RowId(INVALID_PAGE_ID, 0);
+  table_heap_->buffer_pool_manager_->UnpinPage(next_page_id, false);
   return *this;
 }
 
 // iter++
 TableIterator TableIterator::operator++(int) {
-  auto temp = TableIterator(*this);
+  RowId rid = this->rid_;
+  TableHeap *table_heap = this->table_heap_;
+  Row *row = nullptr;
+  Txn *txn = this->txn_;
+  if(this->row_) {
+    row = new Row(*this->row_);
+  }else {
+    row = this->row_;
+  }
   ++(*this);
-  return temp;
+  return TableIterator(table_heap, rid, txn, row);
 }
 
