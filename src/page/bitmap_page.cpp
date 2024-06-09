@@ -7,20 +7,27 @@
  */
 template <size_t PageSize>
 bool BitmapPage<PageSize>::AllocatePage(uint32_t &page_offset) {
-  for( int i = 0; i < MAX_CHARS; i++) {
-    unsigned char test = 1;
-    for(int j = 0; j < 8; j++) {
-      if((bytes[i] & test) == 0) {
-        page_offset = i * 8 + j;
-        bytes[i] += test;
-        page_allocated_++;
-        return true;
-      }else {
-        test *= 2;
-      }
+  if(page_allocated_ == MAX_CHARS * 8) {
+    return false;
+  }
+  page_offset = next_free_page_;
+  uint32_t byte_index = page_offset / 8;
+  uint8_t bit_index = page_offset % 8;
+  bytes[byte_index] ^= (1 << bit_index);
+  for(int i = next_free_page_ + 1; i < MAX_CHARS * 8; i++) {
+    if(IsPageFree(i)) {
+      next_free_page_ = i;
+      break;
     }
   }
-  return false;
+  for (int i = next_free_page_ - 1; i >= 0; i--) {
+    if(IsPageFree(i)) {
+      next_free_page_ = i;
+      break;
+    }
+  }
+  page_allocated_++;
+  return true;
 }
 
 /**
@@ -28,18 +35,15 @@ bool BitmapPage<PageSize>::AllocatePage(uint32_t &page_offset) {
  */
 template <size_t PageSize>
 bool BitmapPage<PageSize>::DeAllocatePage(uint32_t page_offset) {
-  uint32_t bit = page_offset / 8;
-  if(bit < MAX_CHARS) {
-    int temp = page_offset % 8;
-    unsigned char retest = 1;
-    for(int i = 0; i < temp; i++) retest *= 2;
-    if((bytes[bit] & retest) > 0) {
-      bytes[bit] -= retest;
-      page_allocated_--;
-      return true;
-    }
+  if(IsPageFree(page_offset)) {
+    return false;
   }
-  return false;
+  uint32_t byte_index = page_offset / 8;
+  uint8_t bit_index = page_offset % 8;
+  bytes[byte_index] ^= (1 << bit_index);
+  next_free_page_ = page_offset;
+  page_allocated_--;
+  return true;
 }
 
 /**
