@@ -83,15 +83,15 @@ bool BPlusTree::IsEmpty() const {
  */
 bool BPlusTree::GetValue(const GenericKey *key, std::vector<RowId> &result, Txn *transaction) {
   if(IsEmpty()) {
-    LOG(INFO)<<"EMPTY!";
+    //LOG(INFO)<<"EMPTY!";
     return false;
   } else {
     if(key==nullptr) {
-      LOG(INFO)<<"key blank";
+      //LOG(INFO)<<"key blank";
     }
     auto *page = FindLeafPage(key, INVALID_PAGE_ID, false);
     if(page == nullptr) {
-      LOG(INFO)<<"page nullptr!";
+      //LOG(INFO)<<"page nullptr!";
       return false;
     }
     LeafPage *leaf = reinterpret_cast<LeafPage *>(page->GetData());
@@ -142,10 +142,10 @@ bool BPlusTree::GetValue(const GenericKey *key, std::vector<RowId> &result, Txn 
 bool BPlusTree::Insert(GenericKey *key, const RowId &value, Txn *transaction) {
   if (IsEmpty()) {
     StartNewTree(key, value);
-    LOG(INFO)<<"START";
+    //LOG(INFO)<<"START";
     return true;
   } else {
-    LOG(INFO) << "BPlusTree::Insert() called" << std::endl;
+    //LOG(INFO) << "BPlusTree::Insert() called" << std::endl;
     return InsertIntoLeaf(key, value, transaction);
   }
 }
@@ -354,19 +354,19 @@ void BPlusTree::InsertIntoParent(BPlusTreePage *old_node, GenericKey *key, BPlus
   if (IsEmpty()) {
     return;
   }
-  // 查找包含给定键的叶子页面
+  // 鏌ユ壘鍖呭惈缁欏畾閿殑鍙跺瓙椤甸潰
   auto leaf_page = reinterpret_cast<BPlusTreeLeafPage *>(FindLeafPage(key, false));
   if (leaf_page == nullptr) {
     return;
   }
-  // 从叶子页面中删除键
+  // 浠庡彾瀛愰〉闈腑鍒犻櫎閿?
   int old_size = leaf_page->GetSize();
   leaf_page->RemoveAndDeleteRecord(key, processor_);
-  // 检查是否需要合并或重新分配
+  // 妫€鏌ユ槸鍚﹂渶瑕佸悎骞舵垨閲嶆柊鍒嗛厤
   if (leaf_page->GetSize() < leaf_page->GetMinSize()) {
     CoalesceOrRedistribute(leaf_page, transaction);
   }
-  // 取消固定页面
+  // 鍙栨秷鍥哄畾椤甸潰
   buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), old_size != leaf_page->GetSize());
 }*/
 void BPlusTree::Remove(const GenericKey *key, Txn *transaction) {
@@ -375,8 +375,8 @@ void BPlusTree::Remove(const GenericKey *key, Txn *transaction) {
   int pre_size = leaf->GetSize();
   if(pre_size > leaf->RemoveAndDeleteRecord(key, processor_)) {
     CoalesceOrRedistribute(leaf, transaction);
-  } else {//不进入
-        //LOG(ERROR) << "Remove() : RemoveAndDeleteRecord() failed";无报错
+  } else {//涓嶈繘鍏?
+        //LOG(ERROR) << "Remove() : RemoveAndDeleteRecord() failed";鏃犳姤閿?
     buffer_pool_manager_->UnpinPage(leaf->GetPageId(), false);
     return;
   }
@@ -394,27 +394,27 @@ void BPlusTree::Remove(const GenericKey *key, Txn *transaction) {
 template <typename N>
 bool BPlusTree::CoalesceOrRedistribute(N *&node, Txn *transaction) {
   LOG(INFO) << "CoalesceOrRedistribute() called";
-  // 如果节点是根节点，则调整根节点
+  // 濡傛灉鑺傜偣鏄牴鑺傜偣锛屽垯璋冩暣鏍硅妭鐐?
   if (node->IsRootPage()) {
     return AdjustRoot(node);
   }
-  // 获取父节点
+  // 鑾峰彇鐖惰妭鐐?
   page_id_t parent_id = node->GetParentPageId();
   auto * parent_page = reinterpret_cast<InternalPage *>(buffer_pool_manager_->FetchPage(parent_id) -> GetData());
   int index = parent_page->ValueIndex(node->GetPageId());
-  // index 是需要接收节点的节点，所以如果 index 为 0，代表 index 是最左边的节点，需要从右边的节点接收
-  // 1. 找到接收节点
+  // index 鏄渶瑕佹帴鏀惰妭鐐圭殑鑺傜偣锛屾墍浠ュ鏋?index 涓?0锛屼唬琛?index 鏄渶宸﹁竟鐨勮妭鐐癸紝闇€瑕佷粠鍙宠竟鐨勮妭鐐规帴鏀?
+  // 1. 鎵惧埌鎺ユ敹鑺傜偣
   int recipient_index = index == 0 ? 1 : index - 1;
   page_id_t recipient_id = parent_page->ValueAt(recipient_index);
   auto * recipient_page = reinterpret_cast<N *>(buffer_pool_manager_->FetchPage(recipient_id)->GetData());
-  // 2. 如果接收节点无法合并，则进行重新分配
+  // 2. 濡傛灉鎺ユ敹鑺傜偣鏃犳硶鍚堝苟锛屽垯杩涜閲嶆柊鍒嗛厤
   if (recipient_page->GetSize() + node->GetSize() >= node->GetMaxSize()) {
     Redistribute(recipient_page, node, index);
     buffer_pool_manager_->UnpinPage(recipient_page->GetPageId(), true);
     buffer_pool_manager_->UnpinPage(parent_page->GetPageId(), true);
     return false;
   } else {
-    // 合并节点
+    // 鍚堝苟鑺傜偣
     Coalesce(recipient_page, node, parent_page, index);
     buffer_pool_manager_->UnpinPage(recipient_page->GetPageId(), true);
     buffer_pool_manager_->UnpinPage(parent_page->GetPageId(), true);
@@ -424,16 +424,16 @@ bool BPlusTree::CoalesceOrRedistribute(N *&node, Txn *transaction) {
 */
 template <typename N>
 bool BPlusTree::CoalesceOrRedistribute(N *&node, Txn *transaction) {
-    LOG(INFO) << "CoalesceOrRedistribute() called";
+    //LOG(INFO) << "CoalesceOrRedistribute() called";
   bool _delete = false;
   if(node->IsRootPage()) {
-    LOG(INFO)<<"AdjustRoot CALLED";
+    //LOG(INFO)<<"AdjustRoot CALLED";
     _delete = AdjustRoot(node);
   } else if (node->GetSize() >= node->GetMinSize()){
-    LOG(INFO)<<"RETURN ";
+    //LOG(INFO)<<"RETURN ";
     return false;
   } else {
-    LOG(INFO)<<"WHEN else";
+    //LOG(INFO)<<"WHEN else";
     page_id_t parent_id = node->GetParentPageId();
     auto * par = reinterpret_cast<InternalPage *>(
         buffer_pool_manager_->FetchPage(parent_id) -> GetData());
@@ -443,12 +443,12 @@ bool BPlusTree::CoalesceOrRedistribute(N *&node, Txn *transaction) {
     auto * sibling = reinterpret_cast<N *>
         (buffer_pool_manager_->FetchPage(sibling_id)->GetData());
     if(node->GetSize() + sibling->GetSize() >= node->GetMaxSize()) {
-      LOG(INFO)<<"Redistribute called";
+      //LOG(INFO)<<"Redistribute called";
       Redistribute(sibling, node, index);
       buffer_pool_manager_->UnpinPage(par->GetPageId(), true);
       buffer_pool_manager_->UnpinPage(sibling->GetPageId(), true);
     } else {
-      LOG(INFO)<<"Coalesce called";
+      //LOG(INFO)<<"Coalesce called";
       Coalesce(sibling, node, par, index);
       buffer_pool_manager_->UnpinPage(par->GetPageId(), true);
       buffer_pool_manager_->UnpinPage(sibling->GetPageId(), true);
@@ -472,7 +472,7 @@ bool BPlusTree::CoalesceOrRedistribute(N *&node, Txn *transaction) {
  */
 bool BPlusTree::Coalesce(LeafPage *&neighbor_node, LeafPage *&node, InternalPage *&parent, int index,
                          Txn *transaction) {
-  // 如果 index 为 0，代表 node 是最左边的节点，需要将 neighbor_node 的内容合并到 node
+  // 濡傛灉 index 涓?0锛屼唬琛?node 鏄渶宸﹁竟鐨勮妭鐐癸紝闇€瑕佸皢 neighbor_node 鐨勫唴瀹瑰悎骞跺埌 node
   int sib_index = index == 0 ? 1 : index - 1;
   if(index < sib_index) {
     neighbor_node->MoveAllTo(node);
@@ -659,21 +659,21 @@ IndexIterator BPlusTree::Begin() {
  * @return : index iterator
  */
 IndexIterator BPlusTree::Begin(const GenericKey *key) {
-  // 检查树是否为空
+  // 妫€鏌ユ爲鏄惁涓虹┖
   if (IsEmpty()) {
     return IndexIterator();
   }
-  // 查找包含给定键的叶页面
+  // 鏌ユ壘鍖呭惈缁欏畾閿殑鍙堕〉闈?
   auto leaf_page = reinterpret_cast<LeafPage *>(FindLeafPage(key, root_page_id_, false));
   if (leaf_page == nullptr) {
     return IndexIterator();
   }
-  // 查找键在叶页面中的索引
+  // 鏌ユ壘閿湪鍙堕〉闈腑鐨勭储寮?
   int index = leaf_page->KeyIndex(key, processor_);
   if (index == -1) {
     return IndexIterator();
   }
-  // 返回指向给定键的迭代器
+  // 杩斿洖鎸囧悜缁欏畾閿殑杩唬鍣?
   return IndexIterator(leaf_page->GetPageId(), buffer_pool_manager_, index);
 }
 
