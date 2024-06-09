@@ -131,7 +131,7 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
   }
 
   // 内存中没有空页
-  frame_id_t frame_id;
+  frame_id_t frame_id = INVALID_FRAME_ID;
   replacer_->Victim(&frame_id);  // 根据replacer策略获得一个替换的页R
   if(frame_id == INVALID_FRAME_ID) // 如果所有页都被Pin了，返回nullpter
     return nullptr;
@@ -190,15 +190,14 @@ bool BufferPoolManager::DeletePage(page_id_t page_id) {
  */
 bool BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty) {
   if(page_table_.find(page_id) == page_table_.end()) {
-    return true;
+    return false;
   }else {
-    auto page = page_table_.find(page_id);
-    frame_id_t cache_page_frame_id = page->second;
-    if(pages_[cache_page_frame_id].pin_count_ != 0) {
-      pages_[cache_page_frame_id].pin_count_ = 0;
-      if(is_dirty) {
-        pages_[cache_page_frame_id].is_dirty_ = true;
-      }
+    frame_id_t cache_page_frame_id = page_table_[page_id];
+    pages_[cache_page_frame_id].is_dirty_ = is_dirty;
+    if(pages_[cache_page_frame_id].pin_count_ > 0) {
+      pages_[cache_page_frame_id].pin_count_ --;
+    }
+    if(pages_[cache_page_frame_id].pin_count_ == 0) {
       replacer_->Unpin(cache_page_frame_id);
     }
     return true;
@@ -210,8 +209,8 @@ bool BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty) {
  */
 bool BufferPoolManager::FlushPage(page_id_t page_id) {
   if(page_table_.find(page_id) != page_table_.end()) {
-    auto page = page_table_.find(page_id);
-    disk_manager_->WritePage(page_id, pages_[page->second].data_);
+    frame_id_t page_frame_id = page_table_[page_id];
+    disk_manager_->WritePage(page_id, pages_[page_frame_id].data_);
   }
   return true;
 }
