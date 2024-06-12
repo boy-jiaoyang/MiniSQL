@@ -41,7 +41,7 @@ page_id_t LeafPage::GetNextPageId() const {
 void LeafPage::SetNextPageId(page_id_t next_page_id) {
   next_page_id_ = next_page_id;
   if (next_page_id == 0) {
-    LOG(INFO) << "Fatal error: LeafPage SetNextPageId = 0";
+//    LOG(INFO) << "Fatal error: LeafPage SetNextPageId = 0";
   }
 }
 
@@ -226,20 +226,6 @@ bool LeafPage::Lookup(const GenericKey *key, RowId &value, const KeyManager &KM)
  * NOTE: store key&value pair continuously after deletion
  * @return  page size after deletion
  */
-/*
-int LeafPage::RemoveAndDeleteRecord(const GenericKey *key, const KeyManager &KM) {
-  //int find_index = KeyFind(key, KM);
-  int find_index;
-  int greater_or_equal_index = KeyIndex(key, KM);
-  if (greater_or_equal_index == -1 || KM.CompareKeys(key, KeyAt(greater_or_equal_index)) != 0) {
-    LOG(ERROR) << "fail to find the key in RemoveAndDeleteRecord.";
-    return GetSize();
-  } else {
-    PairCopy(PairPtrAt(greater_or_equal_index), PairPtrAt(greater_or_equal_index + 1), GetSize() - greater_or_equal_index - 1);
-    IncreaseSize(-1);
-    return GetSize();
-  }
-}*/
 int LeafPage::RemoveAndDeleteRecord(const GenericKey *key, const KeyManager &KM) {
   int index = KeyIndex(key, KM);
   if(index != -1 && KM.CompareKeys(key, KeyAt(index)) == 0) {
@@ -273,11 +259,13 @@ void LeafPage::MoveAllTo(LeafPage *recipient) {
  *
  */
 void LeafPage::MoveFirstToEndOf(LeafPage *recipient) {
-  //recipient->PushBack(KeyAt(0), ValueAt(0));
-  CopyLastFrom(KeyAt(0), ValueAt(0));
-  //Remove(0);
+  if(GetSize() <= 0) {
+    //    LOG(ERROR) << "No pair to be remove" << std::endl;
+    return;
+  }
+  recipient->CopyLastFrom(KeyAt(0), ValueAt(0));
   PairCopy(PairPtrAt(0), PairPtrAt(1), GetSize() - 1);
-  SetSize(GetSize() - 1);
+  IncreaseSize(-1);
 }
 
 /*
