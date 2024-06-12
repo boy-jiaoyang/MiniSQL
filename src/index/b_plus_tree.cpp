@@ -83,15 +83,15 @@ bool BPlusTree::IsEmpty() const {
  */
 bool BPlusTree::GetValue(const GenericKey *key, std::vector<RowId> &result, Txn *transaction) {
   if(IsEmpty()) {
-    LOG(INFO)<<"EMPTY!";
+    //LOG(INFO)<<"EMPTY!";
     return false;
   } else {
     if(key==nullptr) {
-      LOG(INFO)<<"key blank";
+      //LOG(INFO)<<"key blank";
     }
     auto *page = FindLeafPage(key, INVALID_PAGE_ID, false);
     if(page == nullptr) {
-      LOG(INFO)<<"page nullptr!";
+      //LOG(INFO)<<"page nullptr!";
       return false;
     }
     LeafPage *leaf = reinterpret_cast<LeafPage *>(page->GetData());
@@ -142,10 +142,10 @@ bool BPlusTree::GetValue(const GenericKey *key, std::vector<RowId> &result, Txn 
 bool BPlusTree::Insert(GenericKey *key, const RowId &value, Txn *transaction) {
   if (IsEmpty()) {
     StartNewTree(key, value);
-    LOG(INFO)<<"START";
+    //LOG(INFO)<<"START";
     return true;
   } else {
-    LOG(INFO) << "BPlusTree::Insert() called" << std::endl;
+    //LOG(INFO) << "BPlusTree::Insert() called" << std::endl;
     return InsertIntoLeaf(key, value, transaction);
   }
 }
@@ -424,16 +424,16 @@ bool BPlusTree::CoalesceOrRedistribute(N *&node, Txn *transaction) {
 */
 template <typename N>
 bool BPlusTree::CoalesceOrRedistribute(N *&node, Txn *transaction) {
-    LOG(INFO) << "CoalesceOrRedistribute() called";
+    //LOG(INFO) << "CoalesceOrRedistribute() called";
   bool _delete = false;
   if(node->IsRootPage()) {
-    LOG(INFO)<<"AdjustRoot CALLED";
+    //LOG(INFO)<<"AdjustRoot CALLED";
     _delete = AdjustRoot(node);
   } else if (node->GetSize() >= node->GetMinSize()){
-    LOG(INFO)<<"RETURN ";
+    //LOG(INFO)<<"RETURN ";
     return false;
   } else {
-    LOG(INFO)<<"WHEN else";
+    //LOG(INFO)<<"WHEN else";
     page_id_t parent_id = node->GetParentPageId();
     auto * par = reinterpret_cast<InternalPage *>(
         buffer_pool_manager_->FetchPage(parent_id) -> GetData());
@@ -443,12 +443,12 @@ bool BPlusTree::CoalesceOrRedistribute(N *&node, Txn *transaction) {
     auto * sibling = reinterpret_cast<N *>
         (buffer_pool_manager_->FetchPage(sibling_id)->GetData());
     if(node->GetSize() + sibling->GetSize() >= node->GetMaxSize()) {
-      LOG(INFO)<<"Redistribute called";
+      //LOG(INFO)<<"Redistribute called";
       Redistribute(sibling, node, index);
       buffer_pool_manager_->UnpinPage(par->GetPageId(), true);
       buffer_pool_manager_->UnpinPage(sibling->GetPageId(), true);
     } else {
-      LOG(INFO)<<"Coalesce called";
+      //LOG(INFO)<<"Coalesce called";
       Coalesce(sibling, node, par, index);
       buffer_pool_manager_->UnpinPage(par->GetPageId(), true);
       buffer_pool_manager_->UnpinPage(sibling->GetPageId(), true);
