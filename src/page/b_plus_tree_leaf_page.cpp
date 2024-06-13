@@ -3,7 +3,7 @@
 #include <algorithm>
 
 #include "index/generic_key.h"
-
+//ok
 #define pairs_off (data_)
 #define pair_size (GetKeySize() + sizeof(RowId))
 #define key_off 0

@@ -7,7 +7,7 @@
 
 #include "glog/logging.h"
 #include "page/bitmap_page.h"
-
+//ok
 DiskManager::DiskManager(const std::string &db_file) : file_name_(db_file) {
   std::scoped_lock<std::recursive_mutex> lock(db_io_latch_);
   db_io_.open(db_file, std::ios::binary | std::ios::in | std::ios::out);

@@ -2,8 +2,8 @@
 
 #include "index/basic_comparator.h"
 #include "index/generic_key.h"
-
-IndexIterator::IndexIterator() : current_page_id(INVALID_PAGE_ID), item_index(-1), buffer_pool_manager(nullptr) {}
+//ok
+IndexIterator::IndexIterator() = default;
 
 IndexIterator::IndexIterator(page_id_t page_id, BufferPoolManager *bpm, int index)
     : current_page_id(page_id), item_index(index), buffer_pool_manager(bpm) {
@@ -20,26 +20,28 @@ std::pair<GenericKey *, RowId> IndexIterator::operator*() {
 }
 
 IndexIterator &IndexIterator::operator++() {//++
-  if (item_index < page->GetSize() - 1) {//index is not the end
-    item_index++;
-  } else {
-    //check if the next page exists
-    page_id_t next_page_id = page->GetNextPageId();
-    if (next_page_id == INVALID_PAGE_ID) {
-      //reaches the end
-      current_page_id = INVALID_PAGE_ID;
-      item_index = -1;
-      buffer_pool_manager->UnpinPage(page->GetPageId(), false);
-      page = nullptr;
-    } else {
-      //not the end, move to the first element in the next page
-      buffer_pool_manager->UnpinPage(page->GetPageId(), false);
-      page = reinterpret_cast<LeafPage *>(buffer_pool_manager->FetchPage(next_page_id));
-      current_page_id = next_page_id;
-      item_index = 0;
-    }
+  //  static int rx = 0;
+  //  ++rx; LOG(INFO) << "rx = " << rx ;
+  if(++item_index == page->GetSize() && page->GetNextPageId() != INVALID_PAGE_ID) {
+    //    LOG(INFO) << "IndexIterator : move to right page";
+    auto * next_page = reinterpret_cast<::LeafPage *>
+        (buffer_pool_manager->FetchPage(page->GetNextPageId())->GetData());
+    current_page_id = page->GetNextPageId();
+    //    LOG(INFO) << "before : ";
+    buffer_pool_manager->UnpinPage(page->GetPageId(), false);
+    page = next_page;
+    //    LOG(INFO) << "after : ";
+    item_index = 0;
+  } if(item_index == page->GetSize()) {
+    // End() = default;
+    buffer_pool_manager->UnpinPage(current_page_id, false);
+    current_page_id = INVALID_PAGE_ID;
+    page = nullptr;
+    item_index = 0;
+    *this = IndexIterator();
   }
   return *this;
+  //  ASSERT(false, "Not implemented yet.");
 }
 
 bool IndexIterator::operator==(const IndexIterator &itr) const {
