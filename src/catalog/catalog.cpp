@@ -178,8 +178,7 @@ dberr_t CatalogManager::GetTable(const string &table_name, TableInfo *&table_inf
 dberr_t CatalogManager::GetTables(vector<TableInfo *> &tables) const {
   // ASSERT(false, "Not Implemented yet");
   //return DB_FAILED;
-  if(tables.size() == 0) return DB_FAILED;
-  tables.resize(tables_.size());
+  if(tables_.size() == 0) return DB_FAILED;
   for(auto item = tables_.begin(); item != tables_.end(); item++) {
     tables.push_back(item->second);
   }
