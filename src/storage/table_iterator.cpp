@@ -32,7 +32,9 @@ TableIterator::TableIterator(const TableIterator &other) {
   else row_ = nullptr;
 }
 
-TableIterator::~TableIterator() {}
+TableIterator::~TableIterator() {
+  if(!row_) delete row_;
+}
 
 bool TableIterator::operator==(const TableIterator &itr) const {
   return rid_ == itr.rid_ && table_heap_ == itr.table_heap_ && txn_ == itr.txn_;
